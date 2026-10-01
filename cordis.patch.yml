@@ -1,0 +1,43 @@
+# TurtlePlugin-DSH_ComputerUSE — loader patch layer.
+#
+# `dsh plugin add turtle-plugin-dsh-computer-use` records this package in the
+# profile's bundle stack; the entry below is what actually mounts the plugin.
+#
+# The `id` here MUST equal the plugin's exported `name` ('computer-use') and the
+# `name` here MUST equal the npm package name. Overrides of other layers belong
+# at the top level of this file, never inside `insert`.
+- insert:
+    - id: computer-use
+      name: turtle-plugin-dsh-computer-use
+      config:
+        enabled: true
+
+        # background = the plugin paints its own cursor on a click-through
+        # overlay and drives the window with UI Automation and targeted window
+        # messages; your mouse and keyboard stay yours.
+        # foreground = codex-computer-use behaviour: the window is activated and
+        # input goes through the real system queue.
+        # auto       = background first, escalate only when the target provably
+        # cannot be driven in the background.
+        dispatch: background
+
+        # Layer 1 — sandbox. Entries are executable leaf names. Leave the list
+        # empty to require an approval prompt per application instead.
+        allowedApps:
+          - mspaint.exe
+          - notepad.exe
+        deniedApps: []
+
+        # Everything below is also editable in Settings → Plugins, because the
+        # schema marks each field `.volatile()`. These are the load-time values.
+        readOnly: false
+        requireApproval: true
+        firstRunConsent: true
+        allowElevatedTargets: false
+        allowForegroundEscalation: true
+        allowScreenshots: true
+        syntheticCursor: true
+        observeBeforeAct: true
+        autoRefreshAfterAction: true
+        allowedBrowsers: false
+        autoBuildDriver: true
