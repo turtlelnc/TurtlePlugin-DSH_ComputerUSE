@@ -143,7 +143,14 @@ let pid = null
 try {
   // ---------------------------------------------------------------- 1. launch
   process.stdout.write(`\n-- launching ${target}\n`)
-  const launch = await tool('computer_use_launch').execute({ app: target, timeoutMs: 25000 }, fakeExec)
+  // A packaged app (Windows 11 Notepad is MSIX) can take longer than the launch
+  // timeout to show its first window on a cold start, so retry once before
+  // calling it a failure. A real launch failure still fails, twice.
+  let launch = await tool('computer_use_launch').execute({ app: target, timeoutMs: 30000 }, fakeExec)
+  if (launch.windowReady !== true) {
+    process.stdout.write(`   (no window within the timeout; retrying once — ${jsonText(launch).split('\n')[0]})\n`)
+    launch = await tool('computer_use_launch').execute({ app: target, timeoutMs: 30000 }, fakeExec)
+  }
   check('the first real use raises the system-level consent prompt', /First run/i.test(String(approvalCalls[0]?.reason ?? '')), String(approvalCalls[0]?.reason ?? '').slice(0, 120))
   check('the consent prompt is localized', typeof approvalCalls[0]?.displayReason?.zh === 'string' && approvalCalls[0].displayReason.zh.length > 40)
   check('the launch then asks for the application itself', approvalCalls.length === 2, `${approvalCalls.length} prompt(s)`)
