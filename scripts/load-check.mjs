@@ -10,9 +10,28 @@
  * Usage: node scripts/load-check.mjs [--verbose]
  */
 import { existsSync, readFileSync, readdirSync } from 'node:fs'
+import { createHash } from 'node:crypto'
 import { createRequire } from 'node:module'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+
+/** Lowercase hex SHA-256 of a file. */
+function hashOf(path) {
+  return createHash('sha256').update(readFileSync(path)).digest('hex')
+}
+
+/**
+ * Content digest of `native/src/*.cs`, computed exactly as native/build.ps1 does:
+ * per-file `NAME:UPPERCASE_HASH` lines sorted by name, joined with LF, hashed to
+ * lowercase hex. Timestamps are useless here — a fresh clone equalises them.
+ */
+function sourceDigest(dir) {
+  const lines = readdirSync(dir)
+    .filter((name) => name.endsWith('.cs'))
+    .sort()
+    .map((name) => `${name}:${hashOf(join(dir, name)).toUpperCase()}`)
+  return createHash('sha256').update(Buffer.from(lines.join('\n'), 'utf8')).digest('hex')
+}
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const verbose = process.argv.includes('--verbose')
@@ -259,23 +278,24 @@ if (hasExe) {
     const stamp = JSON.parse(readFileSync(stampPath, 'utf8').replace(/^\uFEFF/, ''))
     check('stamp names the driver', stamp.name === 'TurtleComputerUse', String(stamp.name))
     check('stamp size matches the file', stamp.sizeBytes === statSync(exe).size, `${stamp.sizeBytes} vs ${statSync(exe).size}`)
-  }
+    // Get-FileHash on the PowerShell side is uppercase; compare case-insensitively.
+    check('stamp hash matches the executable', String(stamp.sha256).toLowerCase() === hashOf(exe), `${String(stamp.sha256).slice(0, 16)} vs ${hashOf(exe).slice(0, 16)}`)
 
-  // A committed executable that is older than its own sources is the failure
-  // mode this guards: the C# change is in the repository but the binary a user
-  // installs is not. Rebuild with `npm run build:native` and commit both.
-  const srcDir = join(root, 'native', 'src')
-  if (existsSync(srcDir)) {
-    const newestSource = readdirSync(srcDir)
-      .filter((name) => name.endsWith('.cs'))
-      .map((name) => statSync(join(srcDir, name)).mtimeMs)
-      .reduce((a, b) => Math.max(a, b), 0)
-    const exeTime = statSync(exe).mtimeMs
-    check(
-      'the built driver is not older than native/src/*.cs',
-      exeTime >= newestSource,
-      `driver ${new Date(exeTime).toISOString()} vs newest source ${new Date(newestSource).toISOString()} — run \`npm run build:native\` and commit lib/native/`,
-    )
+    // A committed executable whose sources have since changed is the failure this
+    // guards: the C# fix is in the repository but the binary a user installs is
+    // not. Compares a content digest, not timestamps, because a fresh git clone
+    // gives every file the same mtime.
+    const srcDir = join(root, 'native', 'src')
+    if (existsSync(srcDir)) {
+      const digest = sourceDigest(srcDir)
+      check(
+        'the built driver matches native/src/*.cs',
+        stamp.sourcesSha256 === digest,
+        stamp.sourcesSha256 === undefined
+          ? 'stamp predates sourcesSha256 — run `npm run build:native`'
+          : `stamp ${String(stamp.sourcesSha256).slice(0, 12)} vs sources ${digest.slice(0, 12)} — run \`npm run build:native\` and commit lib/native/`,
+      )
+    }
   }
 }
 

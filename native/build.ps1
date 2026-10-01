@@ -126,16 +126,28 @@ if ($exit -ne 0) { throw "csc exited with code $exit" }
 if (-not (Test-Path $outFile)) { throw "csc reported success but $outFile does not exist" }
 
 # ---------------------------------------------------------------- deterministic stamp
-# Rebuilds must be reproducible enough that a plugin update is observable.
+# Rebuilds must be reproducible enough that a plugin update is observable, and a
+# committed executable whose sources have since changed must be detectable. A
+# content digest of the sources is used rather than timestamps, because a fresh
+# git clone gives every file the same mtime and would make an mtime comparison
+# meaningless.
 $hash = (Get-FileHash -Algorithm SHA256 $outFile).Hash
+$sourceDigestInput = ($sources |
+    Sort-Object Name |
+    ForEach-Object { "$($_.Name):$((Get-FileHash -Algorithm SHA256 $_.FullName).Hash)" }) -join "`n"
+$sourceDigest = [System.BitConverter]::ToString(
+    [System.Security.Cryptography.SHA256]::Create().ComputeHash(
+        [System.Text.Encoding]::UTF8.GetBytes($sourceDigestInput))).Replace('-', '').ToLowerInvariant()
+
 $stamp = [ordered]@{
-    name       = 'TurtleComputerUse'
-    version    = '0.1.0-rc1'
-    builtAtUtc = (Get-Date).ToUniversalTime().ToString('o')
-    sha256     = $hash
-    sizeBytes  = (Get-Item $outFile).Length
-    compiler   = $csc
-    sources    = ($sources | ForEach-Object { $_.Name })
+    name            = 'TurtleComputerUse'
+    version         = '0.1.0-rc1'
+    builtAtUtc      = (Get-Date).ToUniversalTime().ToString('o')
+    sha256          = $hash
+    sizeBytes       = (Get-Item $outFile).Length
+    compiler        = $csc
+    sources         = ($sources | ForEach-Object { $_.Name })
+    sourcesSha256   = $sourceDigest
 }
 $stampPath = Join-Path $OutputDir 'TurtleComputerUse.build.json'
 # Written without a BOM: this file is read back by Node, whose JSON.parse rejects one.
