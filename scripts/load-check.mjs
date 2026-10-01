@@ -9,7 +9,7 @@
  *
  * Usage: node scripts/load-check.mjs [--verbose]
  */
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -259,6 +259,23 @@ if (hasExe) {
     const stamp = JSON.parse(readFileSync(stampPath, 'utf8').replace(/^\uFEFF/, ''))
     check('stamp names the driver', stamp.name === 'TurtleComputerUse', String(stamp.name))
     check('stamp size matches the file', stamp.sizeBytes === statSync(exe).size, `${stamp.sizeBytes} vs ${statSync(exe).size}`)
+  }
+
+  // A committed executable that is older than its own sources is the failure
+  // mode this guards: the C# change is in the repository but the binary a user
+  // installs is not. Rebuild with `npm run build:native` and commit both.
+  const srcDir = join(root, 'native', 'src')
+  if (existsSync(srcDir)) {
+    const newestSource = readdirSync(srcDir)
+      .filter((name) => name.endsWith('.cs'))
+      .map((name) => statSync(join(srcDir, name)).mtimeMs)
+      .reduce((a, b) => Math.max(a, b), 0)
+    const exeTime = statSync(exe).mtimeMs
+    check(
+      'the built driver is not older than native/src/*.cs',
+      exeTime >= newestSource,
+      `driver ${new Date(exeTime).toISOString()} vs newest source ${new Date(newestSource).toISOString()} — run \`npm run build:native\` and commit lib/native/`,
+    )
   }
 }
 

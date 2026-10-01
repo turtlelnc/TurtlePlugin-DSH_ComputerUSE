@@ -473,22 +473,84 @@ namespace TurtleComputerUse
             }
         }
 
+        /// <summary>
+        /// Whether a window's accessible text contains a needle.
+        ///
+        /// Deliberately broader than an exact accessible-name lookup: a document's
+        /// body text is usually exposed as a value or through TextPattern, not as
+        /// the element's Name, so matching Name alone misses the very text a caller
+        /// is waiting for. Walks the control view with a cache request and a node
+        /// cap, and matches case-insensitively on a substring.
+        /// </summary>
         private static bool TreeContains(WindowInfo window, string needle)
         {
             try
             {
                 var root = System.Windows.Automation.AutomationElement.FromHandle(window.Handle);
                 if (root == null) return false;
-                var condition = new System.Windows.Automation.PropertyCondition(
-                    System.Windows.Automation.AutomationElement.NameProperty, needle);
-                var found = root.FindFirst(System.Windows.Automation.TreeScope.Descendants, condition);
-                return found != null;
+
+                var walker = System.Windows.Automation.TreeWalker.ControlViewWalker;
+                var cache = new System.Windows.Automation.CacheRequest();
+                cache.Add(System.Windows.Automation.AutomationElement.NameProperty);
+                cache.Add(System.Windows.Automation.ValuePattern.ValueProperty);
+                cache.Add(System.Windows.Automation.AutomationElement.IsValuePatternAvailableProperty);
+                cache.Add(System.Windows.Automation.AutomationElement.IsTextPatternAvailableProperty);
+
+                using (cache.Activate())
+                {
+                    var visited = 0;
+                    return WalkForText(walker, root, needle, ref visited, 2000);
+                }
             }
             catch (Exception ex)
             {
                 App.Log("wait: tree probe failed: " + ex.Message);
                 return false;
             }
+        }
+
+        private static bool WalkForText(System.Windows.Automation.TreeWalker walker,
+            System.Windows.Automation.AutomationElement element, string needle, ref int visited, int maxNodes)
+        {
+            if (element == null || visited >= maxNodes) return false;
+            visited++;
+
+            try
+            {
+                var name = element.Current.Name;
+                if (!string.IsNullOrEmpty(name) && name.IndexOf(needle, StringComparison.OrdinalIgnoreCase) >= 0) return true;
+
+                if ((bool)element.GetCurrentPropertyValue(System.Windows.Automation.AutomationElement.IsValuePatternAvailableProperty))
+                {
+                    var value = ((System.Windows.Automation.ValuePattern)element.GetCurrentPattern(
+                        System.Windows.Automation.ValuePattern.Pattern)).Current.Value;
+                    if (!string.IsNullOrEmpty(value) && value.IndexOf(needle, StringComparison.OrdinalIgnoreCase) >= 0) return true;
+                }
+
+                if ((bool)element.GetCurrentPropertyValue(System.Windows.Automation.AutomationElement.IsTextPatternAvailableProperty))
+                {
+                    var pattern = (System.Windows.Automation.TextPattern)element.GetCurrentPattern(
+                        System.Windows.Automation.TextPattern.Pattern);
+                    var text = pattern.DocumentRange.GetText(-1);
+                    if (!string.IsNullOrEmpty(text) && text.IndexOf(needle, StringComparison.OrdinalIgnoreCase) >= 0) return true;
+                }
+            }
+            catch (Exception)
+            {
+                // A provider that refuses one property still contributes its children.
+            }
+
+            System.Windows.Automation.AutomationElement child;
+            try { child = walker.GetFirstChild(element); }
+            catch (Exception) { return false; }
+
+            while (child != null)
+            {
+                if (WalkForText(walker, child, needle, ref visited, maxNodes)) return true;
+                try { child = walker.GetNextSibling(child); }
+                catch (Exception) { return false; }
+            }
+            return false;
         }
 
         // ------------------------------------------------------------------ wire

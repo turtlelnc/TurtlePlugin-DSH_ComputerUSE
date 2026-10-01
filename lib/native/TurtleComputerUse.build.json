@@ -1,9 +1,9 @@
 {
     "name":  "TurtleComputerUse",
     "version":  "0.1.0-rc1",
-    "builtAtUtc":  "2026-10-01T08:56:33.7193327Z",
-    "sha256":  "1FB8A90DF35C42D9F0D767086D448FAD8530C34ACFF43A2FEE580009B046A49C",
-    "sizeBytes":  102400,
+    "builtAtUtc":  "2026-10-01T09:44:52.8351663Z",
+    "sha256":  "487AE31E4B150B028494CF7B7068B4D61836FDFE24ACB95493B10779D08B8258",
+    "sizeBytes":  103424,
     "compiler":  "C:\\WINDOWS\\Microsoft.NET\\Framework64\\v4.0.30319\\csc.exe",
     "sources":  [
                     "Actions.cs",
