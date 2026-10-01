@@ -1,4 +1,4 @@
-﻿# TurtlePlugin-DSH_ComputerUSE
+# TurtlePlugin-DSH_ComputerUSE
 
 **V0.1.0-rc1** · English | [中文](README.zh.md)
 
@@ -11,6 +11,8 @@ two independent control layers in front of it and an honest account of what it c
 |---|---|
 | English product name | `TurtlePlugin-DSH_ComputerUSE` |
 | Chinese product name | `DSH操纵电脑（TurtlePlugin）` |
+| Where those names come from | `locale/en.json` and `locale/zh.json`; the app shows the one matching its UI language (see §7.9) |
+| This document | `README.md` (English) · [`README.zh.md`](README.zh.md) (中文) |
 | Version | `0.1.0-rc1` (displayed as `V0.1.0-rc1`) |
 | npm package | `turtle-plugin-dsh-computer-use` |
 | Cordis plugin id | `computer-use` |
@@ -508,6 +510,43 @@ fails rather than installing something that cannot work.
 | Cordis | `~4.0.4` (`@deepseek-ai/cordis`) — the same range on both lines |
 | Schemastery | `~3.18.4` (`@deepseek-ai/schemastery`) — the same range on both lines |
 | Approval channel | `@deepseek-ai/dsh-user-approval`. Optional, but without it the approval layer has no way to ask and fails closed, so nothing can be driven unless it is on the allow-list |
+
+### 7.9 The name the app shows
+
+The Plugins page, the bundle and row detail pages, and Settings' plugin inventory render a plugin's
+title and description **in the current UI language**. The host resolves each field independently:
+
+| Field | Resolution order |
+|---|---|
+| Title | `locale/<lang>.json` → `meta.title` → `package.json` `name` → the full Cordis module name |
+| Description | `locale/<lang>.json` → `meta.description` → `package.json` `description` → no description |
+
+Without locale files a plugin can only be listed under its npm package name, which is why an
+unadorned install shows `turtle-plugin-dsh-computer-use` instead of a product name. This package
+ships both languages:
+
+```json
+// locale/en.json
+{ "meta": { "title": "TurtlePlugin-DSH_ComputerUSE", "description": "Computer Use for DeepSeek Harness: …" } }
+```
+
+```json
+// locale/zh.json
+{ "meta": { "title": "DSH操纵电脑（TurtlePlugin）", "description": "DeepSeek Harness 的 Computer Use 能力：…" } }
+```
+
+They are exported as `./locale/*.json` and listed in `files`, which is all the host needs: it
+resolves `<package name>/locale/en.json` through the export map and reads the JSON **without
+activating the plugin**. Switch the app between English and Chinese and the card follows.
+
+`npm run check` asserts both files, both titles, that the localisation really differs, and that the
+export map resolves `<package name>/locale/<lang>.json` — so a packaging mistake fails the check
+instead of silently degrading to the package name.
+
+**Two names, two documents.** On GitHub the repository shows `README.md`, whose title is the English
+product name; the Chinese document is [`README.zh.md`](README.zh.md), titled
+**DSH操纵电脑（TurtlePlugin）** and linked from the first line of the English one. Inside the app, the
+table above is what decides which name you see.
 
 ---
 

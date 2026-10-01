@@ -10,6 +10,8 @@
 |---|---|
 | 英文产品名 | `TurtlePlugin-DSH_ComputerUSE` |
 | 中文产品名 | `DSH操纵电脑（TurtlePlugin）` |
+| 这两个名字的来源 | `locale/en.json` 与 `locale/zh.json`；应用显示与界面语言一致的那个（见 §7.9） |
+| 本文档 | [`README.md`](README.md)（English）· `README.zh.md`（中文） |
 | 版本 | `0.1.0-rc1`（显示为 `V0.1.0-rc1`） |
 | npm 包名 | `turtle-plugin-dsh-computer-use` |
 | Cordis 插件 id | `computer-use` |
@@ -444,6 +446,40 @@ pnpm pack             # → turtle-plugin-dsh-computer-use-0.1.0-rc1.tgz
 | Cordis | `~4.0.4`（`@deepseek-ai/cordis`）——两条线相同 |
 | Schemastery | `~3.18.4`（`@deepseek-ai/schemastery`）——两条线相同 |
 | 审批通道 | `@deepseek-ai/dsh-user-approval`。可选，但没有它审批层无处发问，会失败即拒绝，因此除非应用在白名单里，否则什么都驱动不了 |
+
+### 7.9 应用里显示的名字
+
+插件页、组合包与插件行的详情页、以及设置里的插件清单，都会**按当前界面语言**渲染插件的标题与描述。
+Host 对两个字段各自独立回退：
+
+| 字段 | 回退顺序 |
+|---|---|
+| 标题 | `locale/<语言>.json` → `meta.title` → `package.json` 的 `name` → Cordis 模块全名 |
+| 描述 | `locale/<语言>.json` → `meta.description` → `package.json` 的 `description` → 无描述 |
+
+所以没有 locale 文件的插件，只能以 npm 包名露面——这正是没加之前应用里显示
+`turtle-plugin-dsh-computer-use`、而不是产品名的原因。本插件两种语言都随包提供：
+
+```json
+// locale/en.json
+{ "meta": { "title": "TurtlePlugin-DSH_ComputerUSE", "description": "Computer Use for DeepSeek Harness: …" } }
+```
+
+```json
+// locale/zh.json
+{ "meta": { "title": "DSH操纵电脑（TurtlePlugin）", "description": "DeepSeek Harness 的 Computer Use 能力：…" } }
+```
+
+它们通过 `./locale/*.json` 导出、并列在 `files` 里，这就是 Host 需要的全部：它经由导出映射解析
+`<包名>/locale/en.json` 并读取 JSON，**不会为此激活插件**。把应用在中文与英文之间切换，卡片上的
+名字随之变化。
+
+`npm run check` 会断言这两个文件、两个标题、两者确实不同，以及导出映射能解析出
+`<包名>/locale/<语言>.json`——因此打包出错会让检查失败，而不是悄悄退化成包名。
+
+**两个名字，两份文档。** GitHub 仓库首页展示的是 `README.md`，标题是英文产品名；中文文档是
+[`README.zh.md`](README.zh.md)，标题为 **DSH操纵电脑（TurtlePlugin）**，并在英文文档第一行有链接。
+而在应用内部，看到哪个名字由上表决定。
 
 ---
 
