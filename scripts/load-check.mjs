@@ -67,7 +67,24 @@ check('patch entry id is computer-use', /-\s+id:\s*computer-use\b/.test(patch))
 check('patch entry name is the package name', patch.includes(`name: ${pkg.name}`))
 
 section('3. plugin entry contract')
-const mod = await import(pathToFileURL(join(root, 'lib', 'index.js')).href)
+let mod
+try {
+  mod = await import(pathToFileURL(join(root, 'lib', 'index.js')).href)
+} catch (error) {
+  if (String(error?.code ?? '').includes('ERR_MODULE_NOT_FOUND') || /Cannot find (package|module)/.test(String(error?.message ?? ''))) {
+    process.stdout.write(
+      `  FAIL lib/index.js could not be imported: ${error.message}\n\n` +
+        'The plugin imports @deepseek-ai/dsh-tools and @deepseek-ai/schemastery at runtime, so a\n' +
+        'checkout needs its dependencies before this script can run:\n\n' +
+        '  pnpm install\n' +
+        '  npm run check\n\n' +
+        'A DeepSeek Harness *installation* does not need this step: `dsh plugin add` forwards to pnpm\n' +
+        'and resolves those peers from the profile, which is why the published lib/ is committed.\n',
+    )
+    process.exit(1)
+  }
+  throw error
+}
 check('exports apply()', typeof mod.apply === 'function')
 check('exports name', typeof mod.name === 'string')
 check('name matches the patch entry id', mod.name === 'computer-use', String(mod.name))
