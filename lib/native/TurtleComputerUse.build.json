@@ -1,0 +1,20 @@
+{
+    "name":  "TurtleComputerUse",
+    "version":  "0.1.0-rc1",
+    "builtAtUtc":  "2026-10-01T08:56:33.7193327Z",
+    "sha256":  "1FB8A90DF35C42D9F0D767086D448FAD8530C34ACFF43A2FEE580009B046A49C",
+    "sizeBytes":  102400,
+    "compiler":  "C:\\WINDOWS\\Microsoft.NET\\Framework64\\v4.0.30319\\csc.exe",
+    "sources":  [
+                    "Actions.cs",
+                    "Clipboard.cs",
+                    "Cursor.cs",
+                    "Input.cs",
+                    "Json.cs",
+                    "Native.cs",
+                    "Policy.cs",
+                    "Program.cs",
+                    "Uia.cs",
+                    "Windows.cs"
+                ]
+}
