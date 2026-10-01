@@ -1,0 +1,100 @@
+{
+  "name": "turtle-plugin-dsh-computer-use",
+  "version": "0.1.0-rc1",
+  "description": "TurtlePlugin-DSH_ComputerUSE — Computer Use for DeepSeek Harness: UI Automation + synthetic-cursor control of Windows apps, gated by a sandbox layer and an approval layer.",
+  "keywords": [
+    "dsh-plugin",
+    "deepseek-harness",
+    "computer-use",
+    "ui-automation",
+    "windows",
+    "turtle"
+  ],
+  "license": "Apache-2.0",
+  "author": "turtlelnc",
+  "contributors": [
+    "Owen_WWX <owen620293@outlook.com>",
+    "turtlelnc <turtlelnc@outlook.com>",
+    "Owen_WWX的Deepseek Harness <turtleqqmail@qq.com>",
+    "turtlea001 <turtlea001@gmail.com>"
+  ],
+  "homepage": "https://github.com/turtlelnc/TurtlePlugin-DSH_ComputerUSE#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/turtlelnc/TurtlePlugin-DSH_ComputerUSE.git"
+  },
+  "bugs": {
+    "url": "https://github.com/turtlelnc/TurtlePlugin-DSH_ComputerUSE/issues"
+  },
+  "type": "module",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib/**/*.js",
+    "lib/**/*.d.ts",
+    "lib/**/*.exe",
+    "native/**/*.cs",
+    "native/**/*.ps1",
+    "native/**/*.manifest",
+    "cordis.patch.yml",
+    "README.md",
+    "README.zh.md",
+    "LICENSE"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "engines": {
+    "node": "^22.19.0 || >=24.0.0"
+  },
+  "os": [
+    "win32"
+  ],
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "build:ts": "tsc -p tsconfig.json",
+    "build:native": "powershell -NoProfile -ExecutionPolicy Bypass -File native/build.ps1",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "check": "node scripts/load-check.mjs",
+    "smoke": "node scripts/smoke-driver.mjs",
+    "smoke:capture": "node scripts/smoke-driver.mjs --capture",
+    "e2e": "node scripts/e2e-act.mjs",
+    "e2e:yes": "node scripts/e2e-act.mjs --yes",
+    "verify": "npm run typecheck && npm run build && npm run check && npm run smoke",
+    "pack:local": "npm run build && pnpm pack",
+    "prepublishOnly": "npm run build"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "~4.0.4",
+    "@deepseek-ai/dsh-settings": "^0.2.0-rc.2",
+    "@deepseek-ai/dsh-tools": "^0.2.0-rc.2",
+    "@deepseek-ai/dsh-user-approval": "^0.2.0-rc.2",
+    "@deepseek-ai/schemastery": "~3.18.4"
+  },
+  "peerDependenciesMeta": {
+    "@deepseek-ai/dsh-user-approval": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@deepseek-ai/cordis": "4.0.4",
+    "@deepseek-ai/dsh-llm": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-session": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-settings": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-tools": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-user-approval": "0.2.0-rc.2",
+    "@deepseek-ai/schemastery": "3.18.4",
+    "@types/node": "^22.10.2",
+    "typescript": "^5.7.2"
+  }
+}

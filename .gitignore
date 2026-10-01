@@ -1,0 +1,28 @@
+# `lib/` IS tracked on purpose.
+#
+# DeepSeek Harness loads `lib/index.js` directly when a plugin is installed from
+# git, and it does not run a build step for git installs. Shipping the built
+# plugin (and the compiled TurtleComputerUse.exe next to it) is what makes
+# `dsh plugin add github:turtlelnc/TurtlePlugin-DSH_ComputerUSE` work with no
+# toolchain on the user's machine. Refresh it with `npm run build` before every
+# commit that touches src/ or native/.
+
+# Dependencies
+node_modules/
+
+# Local packaging
+*.tgz
+.turtle-local/
+
+# Scratch space used while developing (research notes, asar dumps, debug scripts)
+.tools/
+
+# TypeScript incremental state
+*.tsbuildinfo
+
+# Editor and OS noise
+.vscode/
+.idea/
+Thumbs.db
+Desktop.ini
+*.swp
