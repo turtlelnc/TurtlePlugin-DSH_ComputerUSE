@@ -229,7 +229,8 @@ Before sending a change:
    asserts that the desktop is unlocked and that the process is in the interactive session, so run
    it from a signed-in desktop.
 3. `node scripts/e2e-act.mjs --yes` — the only test that proves the whole chain, including
-   injection; it drives Notepad and closes it again.
+   injection; it drives Character Map (a multi-instance classic Win32 app, so runs are isolated) and
+   refuses to start while the target is already open.
 
 Rules of thumb that the existing code follows:
 

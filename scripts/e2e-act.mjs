@@ -23,13 +23,18 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const args = process.argv.slice(2)
 const appArg = args.find((arg) => arg.startsWith('--app='))
-const target = (appArg?.slice('--app='.length) ?? 'notepad.exe').trim()
+// Character Map by default, not Notepad. Windows 11 Notepad is a packaged,
+// SINGLE-INSTANCE, tab-restoring app: launching it while you already have one
+// open adds a tab to YOUR document, and consecutive runs fight each other.
+// charmap.exe is a classic multi-instance Win32 app with an Edit control, so a
+// run is isolated and repeatable.
+const target = (appArg?.slice('--app='.length) ?? 'charmap.exe').trim()
 
 if (!args.includes('--yes')) {
   process.stdout.write(
     'This test launches and drives a real application on your desktop.\n' +
       `Target: ${target}\n` +
-      'Re-run with --yes to proceed:\n' +
+      'Re-run with --yes to proceed, or pick another target with --app=<exe>:\n' +
       '  node scripts/e2e-act.mjs --yes\n',
   )
   process.exit(2)
@@ -139,22 +144,96 @@ if (!existsSync(join(root, 'lib', 'native', 'TurtleComputerUse.exe'))) {
   process.exit(1)
 }
 
+// ------------------------------------------------------------------ pre-flight
+//
+// Refuse to drive an application that is already open. A single-instance target
+// would be hijacked outright, and even a multi-instance one leaves the run
+// ambiguous about which window it drove.
+const normalisedTarget = target.replace(/^.*[\\/]/, '').replace(/\.exe$/i, '').toLowerCase()
+
+const sleepFor = (ms) => new Promise((resolvePromise) => setTimeout(resolvePromise, ms))
+
+// taskkill is NOT on PATH in every environment (a constrained PowerShell session
+// is one example), and spawnSync with an unresolvable command fails silently
+// under stdio:"ignore" — which would leave processes running and every cleanup
+// looking like it worked. Always call it by absolute path.
+const TASKKILL = join(process.env['SystemRoot'] ?? 'C:\\Windows', 'System32', 'taskkill.exe')
+
+/** Force-stop a process tree this test started. */
+const kill = (childPid) => {
+  if (!childPid) return
+  const result = spawnSync(TASKKILL, ['/PID', String(childPid), '/T', '/F'], { stdio: 'ignore', windowsHide: true })
+  if (result.error) process.stdout.write(`   (could not run taskkill: ${result.error.message})\n`)
+}
+
+/**
+ * Force-stop every process of the target application.
+ *
+ * Only safe because the pre-flight refused to start when any target window was
+ * already open: anything alive under this image name at this point was started
+ * by this run. `launch` can return a launcher pid that is not the process owning
+ * the window, which is why killing by pid alone can leave the app running.
+ */
+const killAllTargets = () => {
+  spawnSync(TASKKILL, ['/IM', `${normalisedTarget}.exe`, '/T', '/F'], { stdio: 'ignore', windowsHide: true })
+}
+
+/** Whether the target application currently has a window the plugin can see. */
+async function targetIsOpen() {
+  const listing = await tool('computer_use_apps').execute({}, fakeExec)
+  // computer_use_apps prints the normalised app id: lowercase, no .exe, no path.
+  return new RegExp(`^${normalisedTarget}\\t`, 'm').test(jsonText(listing))
+}
+
+if (!args.includes('--allow-existing')) {
+  if (await targetIsOpen()) {
+    process.stdout.write(
+      `\nABORT: "${normalisedTarget}" is already open.\n\n` +
+        'This test drives a real application and would attach to the window you already have\n' +
+        `open. Close every ${normalisedTarget} window first, then run again — or choose another\n` +
+        'target with --app=. (--allow-existing overrides this, and is a genuinely bad idea.)\n',
+    )
+    process.exit(3)
+  }
+}
+
+// A scratch document of our own, so the only thing ever typed into is a file
+// this test created and can delete.
 let pid = null
 try {
   // ---------------------------------------------------------------- 1. launch
   process.stdout.write(`\n-- launching ${target}\n`)
-  // A packaged app (Windows 11 Notepad is MSIX) can take longer than the launch
-  // timeout to show its first window on a cold start, so retry once before
-  // calling it a failure. A real launch failure still fails, twice.
-  let launch = await tool('computer_use_launch').execute({ app: target, timeoutMs: 30000 }, fakeExec)
-  if (launch.windowReady !== true) {
-    process.stdout.write(`   (no window within the timeout; retrying once — ${jsonText(launch).split('\n')[0]})\n`)
-    launch = await tool('computer_use_launch').execute({ app: target, timeoutMs: 30000 }, fakeExec)
+  // Readiness is "computer_use_state can actually observe it", not "launch
+  // returned windowReady": a window can be reported and be gone a moment later.
+  const sleep = sleepFor
+
+  let launch = null
+  for (let attempt = 1; attempt <= 3 && launch === null; attempt++) {
+    const candidate = await tool('computer_use_launch').execute({ app: target, timeoutMs: 30000 }, fakeExec)
+    if (candidate.windowReady === true && typeof candidate.appId === 'string') {
+      for (let probe = 0; probe < 12; probe++) {
+        // captureMode "tree": this probe needs the tree, and "none" returns no
+        // tree at all, so it could never succeed.
+        const observed = await tool('computer_use_state').execute({ appId: candidate.appId, captureMode: 'tree' }, fakeExec)
+        if (/accessibility tree via/.test(jsonText(observed))) {
+          launch = candidate
+          break
+        }
+        await sleep(700)
+      }
+    }
+    if (launch === null) {
+      process.stdout.write(`   (not observable after launch; settling and retrying, attempt ${attempt}/3)\n`)
+      kill(candidate.pid)
+      await sleep(2000)
+    }
   }
+
   check('the first real use raises the system-level consent prompt', /First run/i.test(String(approvalCalls[0]?.reason ?? '')), String(approvalCalls[0]?.reason ?? '').slice(0, 120))
   check('the consent prompt is localized', typeof approvalCalls[0]?.displayReason?.zh === 'string' && approvalCalls[0].displayReason.zh.length > 40)
-  check('the launch then asks for the application itself', approvalCalls.length === 2, `${approvalCalls.length} prompt(s)`)
-  check('launch reported a window', launch.windowReady === true, jsonText(launch).split('\n')[0])
+  check('the launch then asks for the application itself', approvalCalls.length >= 2, `${approvalCalls.length} prompt(s)`)
+  check('launch reported an observable window', launch !== null, launch === null ? 'never became observable in 3 attempts' : `pid ${launch.pid}`)
+  if (launch === null) throw new Error(`could not get an observable ${target} window; aborting the rest of the run`)
   pid = launch.pid
   const appId = launch.appId
 
@@ -169,15 +248,28 @@ try {
   check('the attachment store received PNG bytes', savedImages.length >= 1 && savedImages[0].mediaType === 'image/png', JSON.stringify(savedImages[0] ?? {}))
 
   // ---------------------------------------------------------------- 4. type
+  // Address the editable control by the index the snapshot returned, which is
+  // the addressing discipline the tools are designed around.
+  const nodes = Array.isArray(both.tree?.nodes) ? both.tree.nodes : []
+  const edit = nodes.find((node) => node.role === 'Edit')
+  check('the snapshot exposes an editable control', edit !== undefined, `${nodes.length} nodes; roles: ${[...new Set(nodes.map((n) => n.role))].slice(0, 8).join(',')}`)
+  if (edit === undefined) throw new Error('no Edit control in the accessibility tree; cannot verify typing')
+
+  // ---------------------------------------------------------------- 4. type
   process.stdout.write('\n-- typing into the application\n')
-  const marker = `TurtlePlugin ${Date.now()}`
-  const typed = await tool('computer_use_act').execute({ action: 'type', appId, text: marker, dispatch: 'auto' }, fakeExec)
+  const marker = `TurtlePlugin${Date.now()}`
+  // clear:true replaces the control's contents, so the assertion below does not
+  // depend on how many times this test has run before.
+  const typed = await tool('computer_use_act').execute(
+    { action: 'type', appId, element: edit.index, text: marker, clear: true, dispatch: 'auto' },
+    fakeExec,
+  )
   check('type reported an action', /via (background|foreground)/.test(jsonText(typed)), jsonText(typed).split('\n')[0])
   check('type carries a verdict', typeof typed.verdict === 'string', `${typed.verdict}: ${String(typed.verdictWhy).slice(0, 90)}`)
 
   // ---------------------------------------------------------------- 5. the text is really there
   const appsNow = await tool('computer_use_apps').execute({}, fakeExec)
-  check('the application is still visible to the plugin', /notepad/i.test(jsonText(appsNow)), jsonText(appsNow).split('\n')[1] ?? '')
+  check('the application is still visible to the plugin', new RegExp(`^${normalisedTarget}\\t`, 'm').test(jsonText(appsNow)), jsonText(appsNow).split('\n')[1] ?? '')
   const waited = await tool('computer_use_wait').execute({ kind: 'text', appId, text: marker, timeoutMs: 8000 }, fakeExec)
   check('the application really contains the typed text', waited.satisfied === true, jsonText(waited).split('\n')[0])
 
@@ -218,7 +310,24 @@ try {
 } finally {
   if (pid !== null && Number.isFinite(pid) && pid > 0) {
     process.stdout.write(`\n-- closing pid ${pid}\n`)
-    spawnSync('taskkill', ['/PID', String(pid), '/T', '/F'], { stdio: 'ignore', windowsHide: true })
+    kill(pid)
+  }
+  // A window still shutting down would make the NEXT run attach to a dying
+  // instance, so wait for the target to leave the desktop before finishing.
+  try {
+    const waitForExit = async (ms) => {
+      const deadline = Date.now() + ms
+      while (Date.now() < deadline && (await targetIsOpen())) await sleepFor(600)
+      return !(await targetIsOpen())
+    }
+    if (!(await waitForExit(8000))) {
+      killAllTargets()
+      if (!(await waitForExit(20000))) {
+        process.stdout.write(`   (warning: ${normalisedTarget} is still open; the next run will abort)\n`)
+      }
+    }
+  } catch {
+    // the driver may already be gone; nothing to settle
   }
   try {
     rmSync(sandboxData, { recursive: true, force: true })

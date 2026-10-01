@@ -597,13 +597,27 @@ node scripts/e2e-act.mjs --yes
 ```
 
 **This one does touch your desktop.** It mounts the real plugin against a harness double, launches
-Notepad (`--app=mspaint` changes the target), types a marker string, waits for that text to appear
-in the accessibility tree, checks that a screenshot was attached, that the approval prompt fired
-exactly once and was remembered, that a point outside the approved window is refused
-(`point_outside_target`) and that a coordinate-only click is refused (`no_target`), that a shell is
-refused before anything is touched, and that observe-only mode refuses injection — **20 checks** —
-then closes the process it started. The `--yes` flag is mandatory; without it the script prints
-what it would do and exits.
+Character Map — a classic multi-instance Win32 app, so a run is isolated — types a marker string into
+the `Edit` control it found by element index, waits for that text to appear in the accessibility
+tree, checks that a screenshot was attached, that the consent and application prompts fired and were
+remembered, that a point outside the approved window is refused (`point_outside_target`) and that a
+coordinate-only click is refused (`no_target`), that a shell is refused before anything is touched,
+and that observe-only mode refuses injection — **22 checks** — then closes the process it started and
+waits until the application has actually left the desktop.
+
+`--yes` is mandatory; without it the script prints what it would do and exits. `--app=<exe>` changes
+the target.
+
+Two safety properties, both deliberate:
+
+* **It refuses to run while the target is already open.** Notepad is the obvious target and the wrong
+  one: Windows 11 Notepad is packaged, **single-instance** and restores the previous tab, so
+  launching it while you have one open adds a tab to *your* document and every action lands there. An
+  already-open target aborts the run with exit code 3 rather than taking over your window.
+* **It never leaves the app behind.** Cleanup kills the process tree by absolute path
+  (`%SystemRoot%\System32\taskkill.exe` — `taskkill` is not on `PATH` in every environment, and a
+  silent failure there leaves the app running and the next run aborting), then waits for the target
+  to disappear before exiting.
 
 ---
 
