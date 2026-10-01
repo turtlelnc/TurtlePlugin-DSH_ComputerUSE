@@ -253,54 +253,201 @@ host 则拒绝「本会话从未观察过该窗口、却只用坐标寻址」的
 
 ## 7. 安装
 
-### 本地 tarball 方式（现在就能用）
+目前有两代 harness 并存，它们的插件安装方式**完全不同**。请先看 §7.1。
+
+### 7.1 你用的是哪一代？
+
+| Harness | 运行时版本 | 可用的安装入口 | 状态 |
+|---|---|---|---|
+| **DeepSeek Harness 桌面端 v0.2.0** | `0.2.0-rc.2` | Web 侧边栏 → **插件** → **添加插件** | 已支持 |
+| **`dsh` CLI `0.1.7-rc.2`**（含 `0.1.7-rc.1`、`0.1.6-*`、`0.1.5-rc.*`） | `0.1.7-rc.2` | `dsh plugin --profile <名称> add …` | 已支持，同一个构建 |
+| 其他 harness | — | — | 未验证 |
+
+插件把 peer 声明成 `>=0.1.7-rc.2 <0.3.0`，所以**一份构建同时服务两条线**。这不是乐观估计：
+在 `0.1.7-rc.2` 与 `0.2.0-rc.2` 之间，本插件真正使用的那三个包——
+`@deepseek-ai/dsh-tools`、`@deepseek-ai/dsh-settings`、`@deepseek-ai/dsh-user-approval`——
+**逐字节完全相同**，只有各自的 `package.json` 不同。`@deepseek-ai/cordis` 两条线都是 `~4.0.4`，
+`@deepseek-ai/schemastery` 两条线都是 `~3.18.4`。用下面的命令确认自己用的是哪个版本：
 
 ```powershell
-git clone https://github.com/turtlelnc/TurtlePlugin-DSH_ComputerUSE.git
-cd TurtlePlugin-DSH_ComputerUSE
+dsh --version
+```
+
+**包还没有发布到 npm。** 目前可用的是 tarball、Git 地址和本地绝对路径三种；
+npm 包名方式要等发布之后才成立。
+
+### 7.2 桌面端 v0.2.0
+
+桌面端拥有自己的 profile，CLI 无权管理它，因此侧边栏页面是唯一受支持的入口。全部操作都在应用内完成。
+
+1. **打开插件页。** 左侧栏选择 **插件**（英文界面为 **Plugins**）。它通过 `api-remotes` 读取当前
+   profile 已安装的组合包；没有受管 profile 的 Host 会把该页面显示为不可用。
+
+2. **选择安装源。** 点击 **添加插件**（**Add plugin**）。输入框旁边有 **安装源**（**Registry**）选择器：
+   官方 npm 源、**npmmirror**（中国大陆镜像，如果你那里 `registry.npmjs.org` 很慢或不通就选它）、
+   或自定义 `http(s)` 地址（私有源）。首次使用时应用会并发探测官方源与 npmmirror，把最先 ping 通的
+   那个设为默认；你的选择随后会记在这个浏览器里。
+
+   > **镜像代理的是 npm 源，不是 GitHub。** 如果你用 *Git 地址* 安装而 GitHub 不通，换到 npmmirror
+   > 没有帮助——对话框会提示 **无法访问 GitHub** 并给出 **使用中国大陆镜像**，点了仍会回到空输入框。
+   > GitHub 被墙时请改用 **tarball** 或 **npm 包名**。
+
+3. **填入 spec。** 这个输入框接受的正是 README 里 `dsh plugin add` 后面那一段，另外还接受 Git 地址和路径。
+   目前请用下面之一：
+
+   ```text
+   C:\Users\<你>\Downloads\turtle-plugin-dsh-computer-use-0.1.0-rc1.tgz      ← tarball（推荐）
+   C:\Users\<你>\Videos\Turtle.AI-DSH_Plugin\Turtle.AIplugin-DSH_ComputerUSE  ← 本地绝对路径
+   github:turtlelnc/TurtlePlugin-DSH_ComputerUse                              ← Git（需要能访问 GitHub）
+   turtle-plugin-dsh-computer-use@0.1.0-rc1                                   ← npm，发布之后
+   ```
+
+   目前也还没有 GitHub Releases 可以下载 tarball——用 §7.7 一步生成，或者克隆仓库后把目录填进去。
+
+4. **读完信任提示再安装。** **安装** 按钮上方那行提示始终可见，它说明已安装的插件**不会自动更新**：
+   升级意味着卸载后安装新版本。安装会在 profile 目录里运行 `pnpm add`，也就是说从这一刻起，该包里的
+   代码会在 harness 进程内执行。pnpm 的命令与输出折叠在 **查看安装详情** 之后。
+
+   Host 会在安装前先读出 spec 指向什么：源里没有这个名字、路径下没有 `package.json`、包里没有
+   `dsh.bundle` 声明、或者 pnpm 会拒绝的 spec，都会在输入框下方用一句话说明。
+
+5. **启用它。** 安装完成后会出现 **立即启用**，点击即打开该组合包、关闭对话框并把列表滚到它。
+   如果直接关闭，组合包保持已安装但处于**关闭**状态——在 **已安装** 里打开它的卡片，手动开启开关。
+
+6. **重启 DeepSeek Harness。** loader patch 在 profile 启动时读取，所以在重启之前那六个
+   `computer_use_*` 工具并不存在。
+
+7. **配置白名单。** 两种方式都可以：
+   * **插件 → computer-use → 配置**——插件自己的配置页，由 schema 渲染，包含白名单、黑名单、下发模式等；
+   * **设置 → 内置插件**——只读清单，用来确认它到底挂载上没有。
+
+### 7.3 `dsh` CLI（0.1.7-rc.2 及 0.1.x 全线）
+
+`dsh plugin --profile <名称> <pnpm 参数>` 会把参数转发给 **profile 目录内** 的 pnpm，因此
+`add`、`remove`、`update`、`install` 都可以用，另外还有 §7.4 的版本豁免子命令。
+
+> **`desktop` profile 无法从 CLI 管理。** `desktop` 这个名字属于 Electron 拥有的 profile，CLI 会拒绝
+> 针对它的启动、config-dump 和插件管理请求。那个 profile 请用桌面端的插件页（§7.2）；CLI 请在
+> `web` 或其他 profile 里操作。
+
+```powershell
+# 0. 一次性：先拿到可安装的 tarball。
+git clone https://github.com/turtlelnc/TurtlePlugin-DSH_ComputerUse.git
+cd TurtlePlugin-DSH_ComputerUse
 pnpm install
 pnpm pack
-dsh plugin --profile desktop add ./turtle-plugin-dsh-computer-use-0.1.0-rc1.tgz
+#   → turtle-plugin-dsh-computer-use-0.1.0-rc1.tgz
+
+# 1. 装进某个 profile。`web` 是 CLI 自带的 Web profile，首次使用会自动初始化；
+#    换成你实际运行的那个 profile 名称即可。
+dsh plugin --profile web add .\turtle-plugin-dsh-computer-use-0.1.0-rc1.tgz
+
+# 2. 对账：包必须同时出现在 dependencies 和 dsh.profile.bundles 里。
+Get-Content $env:USERPROFILE\.dsh\profiles\web\package.json
+
+# 3. 层组合检查：应出现 "# == turtle-plugin-dsh-computer-use" 层，
+#    且没有 duplicate-id 告警、没有 "declares no dsh.bundle" 报错。
+dsh --profile web --dump-config | Select-String "turtle-plugin" -Context 2,12
+
+# 4. 用该 profile 重启 harness。
+dsh --profile web
 ```
 
-`pnpm pack` 会按包的 `files` 列表生成 tarball，其中包含 `lib/**/*.js`、`lib/**/*.d.ts`、
-编译好的驱动 `lib/**/*.exe`、`native/` 源码与构建脚本、loader patch 以及本文档。
+如果你不想把它放在 `%USERPROFILE%\.dsh` 下，`$DSH_HOME` 可以整体搬走 `profiles/` 目录。
 
-### npm 方式（发布之后）
+重启之后，桌面端 **配置** 页的对应物就是插件的设置表单：它能出现，是因为每个可配置字段都声明了
+`.volatile()`；表单的写入会落到该 profile 的 `cordis.patch.yml`。
+
+同样的三种 spec 形式在这里也能用：
 
 ```powershell
-dsh plugin --profile desktop add turtle-plugin-dsh-computer-use
+dsh plugin --profile web add turtle-plugin-dsh-computer-use          # npm 包名（发布之后）
+dsh plugin --profile web add github:turtlelnc/TurtlePlugin-DSH_ComputerUse
+dsh plugin --profile web add C:\绝对\路径\Turtle.AIplugin-DSH_ComputerUse
 ```
 
-**`plugin add` 之后必须重启 profile。** loader patch 在 profile 启动时读取，因此在用该 profile 重启 DeepSeek Harness 之前，
-这六个工具并不存在。如果用 tarball 方式但从别的目录执行，请把 `.tgz` 的完整路径传进去，而不是相对路径。
+> **优先用 tarball，不要用本地目录。** 在 Windows + pnpm 10/11 上，`add <绝对路径>` 可能生成坏符号链接
+> （随后 dsh 会误报 *"declares no dsh.bundle"*）；而且链接方式的插件真实路径在
+> `$DSH_HOME/profiles/` 树外时，运行时解析不到它的 peer 依赖。tarball 的行为与从源安装完全一致。
 
-**仅限 Windows。** 包声明了 `os: ["win32"]`。在其他平台上清单检查会直接失败，而不是装上一个不可能工作的东西；
-`npm run build` 会跳过原生编译步骤并给出警告。
+### 7.4 如果版本检查拒绝了安装
 
-重启之后，在会话里验证：
+两条线都会在 pnpm 运行之前，**把声明的 DSH peer 范围与正在运行的运行时版本做校验**。本插件声明
+`>=0.1.7-rc.2 <0.3.0`，两条线都满足，所以正常情况下不会被拒。若将来某个版本真的被拒，harness 会打印
+应当执行的确切命令——这是一条**精确版本豁免**，记录在该 profile 自己的 `compatibility.json` 里
+（与 `package.json` 同级）：
+
+```powershell
+dsh plugin --profile web version-exemptions                              # 当前运行时 + 已保存的豁免
+dsh plugin --profile web allow-version turtle-plugin-dsh-computer-use@0.1.0-rc1 `
+    --dsh-version 0.1.7-rc.2 --accept-risk
+dsh plugin --profile web revoke-version turtle-plugin-dsh-computer-use@0.1.0-rc1 `
+    --dsh-version 0.1.7-rc.2
+```
+
+一条豁免只覆盖**一个确切的插件版本 + 一个确切的运行时版本**：既不会随插件升级继承，也不会随 harness
+升级继承，并在下一次组合时生效。桌面端会在安装失败对话框里提供同样的入口。接受之前请读一遍风险提示：
+不兼容的插件在进程内运行，可能让 harness 崩溃或损坏数据。
+
+### 7.5 验证安装
+
+在会话里，两种 harness 都一样：
 
 ```text
-computer_use_status            → 驱动路径、版本、锁屏状态、两道控制层
-computer_use_apps              → 当前可见的东西
+computer_use_status     → 驱动路径与版本、桌面锁定状态、两道控制层
+computer_use_apps       → 当前可见的东西
 ```
 
----
+`computer_use_status` 是区分「装坏了」和「驱动坏了」最快的办法：可执行文件缺失时它会报
+`native driver: UNAVAILABLE` 并给出原因，否则会完整报告沙盒与核准层的状态。
 
-## 8. 环境要求
+### 7.6 升级与卸载
+
+**桌面端：** **插件 → 已安装 → 该组合包的卡片**。卸载会要求确认。升级就是卸载后安装新版本——
+已安装的插件永远不会自己更新。
+
+**CLI：**
+
+```powershell
+dsh plugin --profile web remove turtle-plugin-dsh-computer-use
+```
+
+如果上一次是从一个磁盘上已不存在的 tarball 安装的，请先 `remove` 再 `add` 新的：残留的 `file:` spec
+会让 pnpm 报 `ENOENT`。
+
+### 7.7 从源码构建
+
+```powershell
+git clone https://github.com/turtlelnc/TurtlePlugin-DSH_ComputerUse.git
+cd TurtlePlugin-DSH_ComputerUse
+pnpm install          # 保留 .npmrc：auto-install-peers=false 是必需的
+pnpm build            # tsc → lib/，然后 csc → lib/native/TurtleComputerUse.exe
+pnpm pack             # → turtle-plugin-dsh-computer-use-0.1.0-rc1.tgz
+```
+
+`lib/` 与 `lib/native/TurtleComputerUse.exe` 是**有意提交进仓库**的：从 Git 安装时 harness 直接加载
+`lib/index.js`，**不会执行构建步骤**，所以把构建产物一起发出去，才能让一台没有任何工具链的机器装上就能用。
+每次改动 `src/` 或 `native/` 之后，请在提交前重新跑一次 `pnpm build`。
+
+在非 Windows 主机上，`pnpm build` 只编译 TypeScript，并跳过原生步骤给出警告。
+
+**仅限 Windows。** 包声明了 `os: ["win32"]`。在其他平台上清单检查会直接失败，而不是装上一个不可能工作的东西。
+
+### 7.8 环境要求
 
 | 要求 | 版本 / 说明 |
 |---|---|
-| Windows | Windows 10 或 Windows 11，且位于交互式桌面（不是 Session 0，也不是 SSH 登录会话——见第 10 节） |
+| Windows | Windows 10 或 Windows 11，且位于交互式桌面（不是 Session 0，也不是 SSH 登录会话——见 §9） |
 | .NET Framework | 4.x，系统自带。仅用于编译驱动；可执行文件本身除 Windows 自带组件外不需要额外运行时 |
 | Node.js | `^22.19.0 \|\| >=24.0.0`（harness 的要求，插件继承） |
-| DeepSeek Harness | `0.2.0-rc.2`——peer 包为 `@deepseek-ai/dsh-tools`、`@deepseek-ai/dsh-settings`、`@deepseek-ai/dsh-user-approval`（可选但建议装配：没有它审批层无处发问，会失败即拒绝） |
-| Cordis | `4.0.4`（`@deepseek-ai/cordis`） |
-| Schemastery | `3.18.4`（`@deepseek-ai/schemastery`） |
+| DeepSeek Harness | 桌面端 **v0.2.0**（`0.2.0-rc.2`），或 CLI **`0.1.7-rc.2`** 及 0.1.x 全线——见 §7.1 |
+| Cordis | `~4.0.4`（`@deepseek-ai/cordis`）——两条线相同 |
+| Schemastery | `~3.18.4`（`@deepseek-ai/schemastery`）——两条线相同 |
+| 审批通道 | `@deepseek-ai/dsh-user-approval`。可选，但没有它审批层无处发问，会失败即拒绝，因此除非应用在白名单里，否则什么都驱动不了 |
 
 ---
 
-## 9. 验证
+## 8. 验证
 
 五条命令，各自证明不同的事情。它们都不需要正在运行的 harness。
 
@@ -349,7 +496,7 @@ shell 在任何接触之前就被拒绝、只观察模式拒绝注入——共 *
 
 ---
 
-## 10. 已知限制
+## 9. 已知限制
 
 逐条直说，因为每一条都曾让某个 computer-use 实现栽过跟头：
 
@@ -380,7 +527,7 @@ shell 在任何接触之前就被拒绝、只观察模式拒绝注入——共 *
 
 ---
 
-## 11. 故障排查
+## 10. 故障排查
 
 每一次拒绝都是结构化的：稳定的 `code`、写给模型看的 `message`，通常还有 `detail` 对象。最可能遇到的代码：
 
@@ -411,7 +558,7 @@ shell 在任何接触之前就被拒绝、只观察模式拒绝注入——共 *
 
 ---
 
-## 12. 仓库结构
+## 11. 仓库结构
 
 | 路径 | 内容 |
 |---|---|
@@ -434,7 +581,7 @@ shell 在任何接触之前就被拒绝、只观察模式拒绝注入——共 *
 
 ---
 
-## 13. 许可证
+## 12. 许可证
 
 [Apache License 2.0](LICENSE)。
 

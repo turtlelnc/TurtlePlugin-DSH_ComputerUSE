@@ -1,4 +1,4 @@
-# TurtlePlugin-DSH_ComputerUSE
+﻿# TurtlePlugin-DSH_ComputerUSE
 
 **V0.1.0-rc1** · English | [中文](README.zh.md)
 
@@ -294,58 +294,224 @@ See [native/README.md](native/README.md).
 
 ## 7. Install
 
-### From a local tarball (works today)
+Two harness generations are current, and they install plugins in completely different ways. Read
+§7.1 first.
+
+### 7.1 Which harness are you on?
+
+| Harness | Runtime version | Install surface that works | Status |
+|---|---|---|---|
+| **DeepSeek Harness desktop, v0.2.0** | `0.2.0-rc.2` | Web sidebar → **Plugins** → **Add plugin** | Supported |
+| **`dsh` CLI, `0.1.7-rc.2`** (and `0.1.7-rc.1`, `0.1.6-*`, `0.1.5-rc.*`) | `0.1.7-rc.2` | `dsh plugin --profile <name> add …` | Supported, same build |
+| Any other harness | — | — | Not tested |
+
+The plugin declares its peers as `>=0.1.7-rc.2 <0.3.0`, so **one build serves both lines**. That is
+not optimism: between `0.1.7-rc.2` and `0.2.0-rc.2` the three packages this plugin actually uses —
+`@deepseek-ai/dsh-tools`, `@deepseek-ai/dsh-settings` and `@deepseek-ai/dsh-user-approval` — are
+**byte-for-byte identical**; only their `package.json` differs. `@deepseek-ai/cordis` is `~4.0.4`
+and `@deepseek-ai/schemastery` is `~3.18.4` on both lines. Check yours with:
 
 ```powershell
-git clone https://github.com/turtlelnc/TurtlePlugin-DSH_ComputerUSE.git
-cd TurtlePlugin-DSH_ComputerUSE
+dsh --version
+```
+
+**The package is not on npm yet.** The routes that work today are the tarball, a git address, and an
+absolute local path. The npm-name route in §7.5 works only once the package has been published.
+
+### 7.2 DeepSeek Harness desktop v0.2.0
+
+The desktop app owns its own profile, so the CLI cannot install into it — the sidebar page is the
+only supported route. Everything happens in the app.
+
+1. **Open the Plugins page.** In the left sidebar, select **插件** (Chinese UI) / **Plugins**
+   (English UI). It reads the profile's installed bundles through `api-remotes`; a host without a
+   managed profile shows the page as unavailable.
+
+2. **Choose a registry.** Click **Add plugin** (**添加插件**). Next to the field there is a
+   **Registry** (**安装源**) selector:
+   * the official npm registry,
+   * **npmmirror** (the mainland-China mirror) — pick this if `registry.npmjs.org` is slow or
+     blocked where you are,
+   * a custom `http(s)` address for a private registry.
+
+   On first use the app probes the official registry and npmmirror in parallel and preselects
+   whichever answers a ping first; your choice is then remembered in this browser.
+
+   > **The mirror proxies the npm registry, not GitHub.** If you install from a *git address* and
+   > GitHub is unreachable, switching to npmmirror does not help — it will offer **Use mainland
+   > China mirror** and return you to an empty field. Use the **tarball** or **npm name** spec
+   > instead when GitHub is blocked.
+
+3. **Paste the spec.** The field accepts exactly what follows `dsh plugin add` in a README, plus git
+   addresses and paths. Today, use one of:
+
+   ```text
+   C:\Users\<you>\Downloads\turtle-plugin-dsh-computer-use-0.1.0-rc1.tgz      ← tarball (recommended)
+   C:\Users\<you>\Videos\Turtle.AI-DSH_Plugin\Turtle.AIplugin-DSH_ComputerUSE  ← absolute local path
+   github:turtlelnc/TurtlePlugin-DSH_ComputerUse                               ← git (needs GitHub access)
+   turtle-plugin-dsh-computer-use@0.1.0-rc1                                    ← npm, after publication
+   ```
+
+   You cannot get the tarball from GitHub Releases yet either — build it in one step with §7.7, or
+   clone the repository and point the field at the folder.
+
+4. **Read the trust box, then install.** The box stays visible above **Install** and says that
+   installed plugins **do not update automatically**: upgrading means uninstalling and installing
+   the new version. Installing runs `pnpm add` in the profile directory, so from this point on, code
+   from that package executes inside the harness process. The dialog shows pnpm's command and output
+   behind **Show install details**.
+
+   The host inspects the spec before installing: a name no registry has, a path without a
+   `package.json`, a package without a `dsh.bundle` patch, or a spec pnpm would refuse all come back
+   as one sentence under the field.
+
+5. **Enable it.** A finished install offers **立即启用 / Enable now**, which switches the bundle on,
+   closes the dialog and scrolls the list to it. If you close instead, the bundle stays installed but
+   **off** — open its card under **Installed** and switch it on there.
+
+6. **Restart DeepSeek Harness.** The loader patch is read when the profile starts, so the six
+   `computer_use_*` tools do not exist until the app is restarted.
+
+7. **Configure the allow-list.** Either way works:
+   * **Plugins → computer-use → Configure** — the plugin's own configuration page, rendered from its
+     schema, with the allow-list, the deny-list, the dispatch mode and the rest;
+   * **Settings → Built-in plugins** — the read-only inventory, for confirming that it mounted at all.
+
+### 7.3 `dsh` CLI (0.1.7-rc.2 and the rest of the 0.1.x line)
+
+`dsh plugin --profile <name> <pnpm args>` forwards its arguments to pnpm **inside the profile
+directory**, so `add`, `remove`, `update` and `install` all work, plus the version-exemption
+subcommands in §7.4.
+
+> **The `desktop` profile cannot be managed from the CLI.** The `desktop` name is reserved for the
+> Electron-owned profile, and the CLI rejects boot, config-dump and plugin-management requests for
+> it. Use the desktop app's Plugins page (§7.2) for that profile, or work in `web` / another profile
+> from the CLI.
+
+```powershell
+# 0. One-time: get a tarball to install from.
+git clone https://github.com/turtlelnc/TurtlePlugin-DSH_ComputerUse.git
+cd TurtlePlugin-DSH_ComputerUse
 pnpm install
 pnpm pack
-dsh plugin --profile desktop add ./turtle-plugin-dsh-computer-use-0.1.0-rc1.tgz
+#   → turtle-plugin-dsh-computer-use-0.1.0-rc1.tgz
+
+# 1. Install into a profile. `web` is the CLI's own Web profile and
+#    auto-initialises on first use; use whatever profile name you run.
+dsh plugin --profile web add .\turtle-plugin-dsh-computer-use-0.1.0-rc1.tgz
+
+# 2. Reconcile: the bundle must appear in dependencies AND in dsh.profile.bundles.
+Get-Content $env:USERPROFILE\.dsh\profiles\web\package.json
+
+# 3. Compose check: a "# == turtle-plugin-dsh-computer-use" layer must appear,
+#    with no duplicate-id warning and no "declares no dsh.bundle" error.
+dsh --profile web --dump-config | Select-String "turtle-plugin" -Context 2,12
+
+# 4. Restart the harness with that profile.
+dsh --profile web
 ```
 
-`pnpm pack` produces the tarball from the package's `files` list, which includes `lib/**/*.js`,
-`lib/**/*.d.ts`, the built `lib/**/*.exe` driver, the `native/` sources and build script, the
-loader patch and this documentation.
+`$DSH_HOME` moves the whole `profiles/` tree if you do not want it under `%USERPROFILE%\.dsh`.
 
-### From npm (once published)
+After the restart, the equivalent of the desktop **Configure** page is the plugin's Settings form,
+which appears because every configurable field is declared `.volatile()`; a write from the form is
+saved into that profile's `cordis.patch.yml`.
+
+The same three spec forms work here:
 
 ```powershell
-dsh plugin --profile desktop add turtle-plugin-dsh-computer-use
+dsh plugin --profile web add turtle-plugin-dsh-computer-use          # npm name (after publication)
+dsh plugin --profile web add github:turtlelnc/TurtlePlugin-DSH_ComputerUse
+dsh plugin --profile web add C:\abs\path\to\Turtle.AIplugin-DSH_ComputerUse
 ```
 
-**A profile restart is required after `plugin add`.** The loader patch is read when the profile
-starts, so the six tools do not exist until DeepSeek Harness is restarted with that profile. If the
-tarball route is used from another directory, pass the full path to the `.tgz` instead of the
-relative one.
+> **Prefer the tarball over a local directory.** With pnpm 10/11 on Windows, `add <absolute path>`
+> can produce a broken symlink (and `dsh` then misreports *"declares no dsh.bundle"*), and a linked
+> plugin that lives outside `$DSH_HOME/profiles/` cannot resolve its peers at runtime. A tarball
+> behaves exactly like a registry install.
 
-**Windows only.** The package declares `os: ["win32"]`. On any other platform the manifest check
-fails rather than installing something that cannot work; `npm run build` skips the native step with
-a warning.
+### 7.4 If the version check refuses the install
 
-After the restart, verify from inside a session:
+Both lines enforce **declared DSH peer ranges against the running runtime version**, before pnpm
+runs. This plugin declares `>=0.1.7-rc.2 <0.3.0`, which both lines satisfy, so a refusal should not
+happen. If a future release does refuse it, the harness prints the exact command to run — an
+*exact-version exemption*, recorded in the profile's own `compatibility.json` beside `package.json`:
+
+```powershell
+dsh plugin --profile web version-exemptions                              # current runtime + saved grants
+dsh plugin --profile web allow-version turtle-plugin-dsh-computer-use@0.1.0-rc1 `
+    --dsh-version 0.1.7-rc.2 --accept-risk
+dsh plugin --profile web revoke-version turtle-plugin-dsh-computer-use@0.1.0-rc1 `
+    --dsh-version 0.1.7-rc.2
+```
+
+A grant covers **one exact package version on one exact runtime version** — it does not survive a
+plugin upgrade or a harness upgrade, and it takes effect on the next composition. In the desktop app
+the same thing is offered in the failure dialog. Read the risk warning before accepting: an
+incompatible plugin runs in-process and can crash the harness.
+
+### 7.5 Verify the install
+
+From inside a session, either harness:
 
 ```text
-computer_use_status            → driver path, version, lock state, both layers
-computer_use_apps              → what is visible right now
+computer_use_status     → driver path and version, desktop lock state, both control layers
+computer_use_apps       → what is visible right now
 ```
 
----
+`computer_use_status` is the fastest way to tell a broken install from a broken driver: it reports
+`native driver: UNAVAILABLE` with the reason when the executable is missing, and the full sandbox and
+approval state when it is not.
 
-## 8. Requirements
+### 7.6 Upgrade and uninstall
+
+**Desktop:** **Plugins → Installed → the bundle's card.** Uninstalling asks for confirmation. To
+upgrade, uninstall and install the new version — installed plugins never update themselves.
+
+**CLI:**
+
+```powershell
+dsh plugin --profile web remove turtle-plugin-dsh-computer-use
+```
+
+If the previous install came from a tarball that no longer exists on disk, `remove` first and then
+`add` the new one: a stale `file:` spec makes pnpm fail with `ENOENT`.
+
+### 7.7 Building from source
+
+```powershell
+git clone https://github.com/turtlelnc/TurtlePlugin-DSH_ComputerUse.git
+cd TurtlePlugin-DSH_ComputerUse
+pnpm install          # keep .npmrc: auto-install-peers=false is required
+pnpm build            # tsc → lib/, then csc → lib/native/TurtleComputerUse.exe
+pnpm pack             # → turtle-plugin-dsh-computer-use-0.1.0-rc1.tgz
+```
+
+`lib/` and `lib/native/TurtleComputerUse.exe` are committed to the repository on purpose: a harness
+installed from git loads `lib/index.js` directly and **does not run a build step**, so shipping the
+built plugin is what makes a git install work on a machine with no toolchain. Refresh them with
+`pnpm build` before every commit that touches `src/` or `native/`.
+
+`pnpm build` on a non-Windows host compiles the TypeScript and skips the native step with a warning.
+
+**Windows only.** The package declares `os: ["win32"]`. On any other platform the manifest check
+fails rather than installing something that cannot work.
+
+### 7.8 Requirements
 
 | Requirement | Version / note |
 |---|---|
-| Windows | Windows 10 or Windows 11, on the interactive desktop (not Session 0, not an SSH logon — see §10) |
+| Windows | Windows 10 or Windows 11, on the interactive desktop (not Session 0, not an SSH logon — see §9) |
 | .NET Framework | 4.x, in-box. Used only to compile the driver; the executable itself needs no runtime install beyond what Windows ships |
 | Node.js | `^22.19.0 \|\| >=24.0.0` (the harness requirement; the plugin inherits it) |
-| DeepSeek Harness | `0.2.0-rc.2` — peer packages `@deepseek-ai/dsh-tools`, `@deepseek-ai/dsh-settings`, `@deepseek-ai/dsh-user-approval` (optional but recommended: without it the approval layer has no way to ask and fails closed) |
-| Cordis | `4.0.4` (`@deepseek-ai/cordis`) |
-| Schemastery | `3.18.4` (`@deepseek-ai/schemastery`) |
+| DeepSeek Harness | desktop **v0.2.0** (`0.2.0-rc.2`) or CLI **`0.1.7-rc.2`** and the rest of the 0.1.x line — see §7.1 |
+| Cordis | `~4.0.4` (`@deepseek-ai/cordis`) — the same range on both lines |
+| Schemastery | `~3.18.4` (`@deepseek-ai/schemastery`) — the same range on both lines |
+| Approval channel | `@deepseek-ai/dsh-user-approval`. Optional, but without it the approval layer has no way to ask and fails closed, so nothing can be driven unless it is on the allow-list |
 
 ---
 
-## 9. Verification
+## 8. Verification
 
 Five commands, each proving something different. None of them requires a running harness.
 
@@ -402,7 +568,7 @@ what it would do and exits.
 
 ---
 
-## 10. Known limits
+## 9. Known limits
 
 Stated plainly, because each one has bitten a computer-use implementation before:
 
@@ -444,7 +610,7 @@ Stated plainly, because each one has bitten a computer-use implementation before
 
 ---
 
-## 11. Troubleshooting
+## 10. Troubleshooting
 
 Every refusal is structured: a stable `code`, a message written to be read by a model, and usually
 a `detail` object. The codes you are most likely to meet:
@@ -476,7 +642,7 @@ the request that produces each one, is in [docs/driver-protocol.md](docs/driver-
 
 ---
 
-## 12. Repository layout
+## 11. Repository layout
 
 | Path | Contents |
 |---|---|
@@ -500,7 +666,7 @@ Deeper reading:
 
 ---
 
-## 13. License
+## 12. License
 
 [Apache License 2.0](LICENSE).
 
