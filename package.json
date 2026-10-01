@@ -35,6 +35,7 @@
       "default": "./lib/index.js"
     },
     "./cordis.patch.yml": "./cordis.patch.yml",
+    "./locale/*.json": "./locale/*.json",
     "./package.json": "./package.json"
   },
   "files": [
@@ -44,6 +45,7 @@
     "native/**/*.cs",
     "native/**/*.ps1",
     "native/**/*.manifest",
+    "locale/*.json",
     "cordis.patch.yml",
     "README.md",
     "README.zh.md",

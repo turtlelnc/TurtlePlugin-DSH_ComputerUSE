@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "DSH操纵电脑（TurtlePlugin）",
+    "description": "DeepSeek Harness 的 Computer Use 能力：用 UI Automation 观察窗口、用原生驱动执行操作，并受沙盒与核准两层约束。支持前台接管与后台虚拟光标两种模式。"
+  }
+}

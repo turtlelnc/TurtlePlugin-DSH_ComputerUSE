@@ -9,7 +9,8 @@
  *
  * Usage: node scripts/load-check.mjs [--verbose]
  */
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
@@ -65,6 +66,46 @@ check(
     pkg.peerDependencies?.['@deepseek-ai/cordis'] === '~4.0.4',
   JSON.stringify(pkg.peerDependencies),
 )
+
+section('1b. localized display metadata')
+// The desktop app, the Plugins page and Settings' plugin inventory show a
+// plugin's title and description in the current UI language, resolved as
+// locale meta.title -> package.json name -> module name. Without locale/*.json
+// the app falls back to the package name, so the product names never appear.
+check('exports ./locale/*.json', pkg.exports?.['./locale/*.json'] !== undefined, JSON.stringify(pkg.exports))
+check('ships locale/*.json in files', (pkg.files ?? []).includes('locale/*.json'), JSON.stringify(pkg.files))
+
+const localeDir = join(root, 'locale')
+const locales = {}
+for (const lang of ['en', 'zh']) {
+  const path = join(localeDir, `${lang}.json`)
+  check(`locale/${lang}.json exists`, existsSync(path))
+  if (!existsSync(path)) continue
+  try {
+    locales[lang] = JSON.parse(readFileSync(path, 'utf8').replace(/^\uFEFF/, ''))
+    check(`locale/${lang}.json parses`, true)
+  } catch (error) {
+    check(`locale/${lang}.json parses`, false, error.message)
+  }
+}
+check('en title is the English product name', locales.en?.meta?.title === 'TurtlePlugin-DSH_ComputerUSE', String(locales.en?.meta?.title))
+check('zh title is the Chinese product name', locales.zh?.meta?.title === 'DSH操纵电脑（TurtlePlugin）', String(locales.zh?.meta?.title))
+check('both titles differ (the metadata is genuinely localized)', locales.en?.meta?.title !== locales.zh?.meta?.title)
+check('en description is a non-empty string', typeof locales.en?.meta?.description === 'string' && locales.en.meta.description.length > 20)
+check('zh description is a non-empty string', typeof locales.zh?.meta?.description === 'string' && locales.zh.meta.description.length > 10)
+check('locale files declare only the meta object', Object.keys(locales.en ?? {}).every((key) => key === 'meta') && Object.keys(locales.zh ?? {}).every((key) => key === 'meta'), JSON.stringify([Object.keys(locales.en ?? {}), Object.keys(locales.zh ?? {})]))
+
+// Resolve them the way the host does: by package specifier through the export map.
+const require = createRequire(import.meta.url)
+for (const lang of ['en', 'zh']) {
+  try {
+    const resolved = require.resolve(`${pkg.name}/locale/${lang}.json`)
+    const parsed = JSON.parse(readFileSync(resolved, 'utf8').replace(/^\uFEFF/, ''))
+    check(`the host can resolve ${pkg.name}/locale/${lang}.json`, parsed?.meta?.title === locales[lang]?.meta?.title, resolved)
+  } catch (error) {
+    check(`the host can resolve ${pkg.name}/locale/${lang}.json`, false, error.message)
+  }
+}
 
 section('2. loader patch')
 const patch = readFileSync(join(root, 'cordis.patch.yml'), 'utf8')
@@ -207,7 +248,7 @@ try {
 check('mount logged the product names', logged.some(([, m]) => m.includes('DSH操纵电脑') && m.includes('TurtlePlugin-DSH_ComputerUSE')), JSON.stringify(logged.slice(-1)))
 
 section('9. driver executable')
-const { existsSync, statSync } = await import('node:fs')
+const { statSync } = await import('node:fs')
 const exe = join(root, 'lib', 'native', 'TurtleComputerUse.exe')
 const hasExe = existsSync(exe)
 check('lib/native/TurtleComputerUse.exe was built', hasExe, hasExe ? '' : 'run `npm run build:native`; the plugin can also compile it on first use')
