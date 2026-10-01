@@ -58,7 +58,13 @@ check('version is 0.1.0-rc1', pkg.version === '0.1.0-rc1', pkg.version)
 check('declares dsh.bundle.patch', pkg.dsh?.bundle?.patch === './cordis.patch.yml', JSON.stringify(pkg.dsh))
 check('exports ./package.json', pkg.exports?.['./package.json'] !== undefined)
 check('engines allow the bundled Node 24', />=24/.test(String(pkg.engines?.node ?? '')) || /22\.19/.test(String(pkg.engines?.node ?? '')), String(pkg.engines?.node))
-check('peer dependencies use the rc channel', Object.values(pkg.peerDependencies ?? {}).every((range) => /rc|4\.0\.4|3\.18/.test(String(range))))
+check(
+  'peer dependencies accept both supported harness lines (0.1.7-rc.2 and 0.2.x)',
+  pkg.peerDependencies?.['@deepseek-ai/dsh-tools']?.includes('0.1.7-rc.2') === true &&
+    pkg.peerDependencies?.['@deepseek-ai/dsh-tools']?.includes('<0.3.0') === true &&
+    pkg.peerDependencies?.['@deepseek-ai/cordis'] === '~4.0.4',
+  JSON.stringify(pkg.peerDependencies),
+)
 
 section('2. loader patch')
 const patch = readFileSync(join(root, 'cordis.patch.yml'), 'utf8')
