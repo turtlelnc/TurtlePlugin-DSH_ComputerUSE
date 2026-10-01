@@ -127,14 +127,22 @@ if (-not (Test-Path $outFile)) { throw "csc reported success but $outFile does n
 
 # ---------------------------------------------------------------- deterministic stamp
 # Rebuilds must be reproducible enough that a plugin update is observable, and a
-# committed executable whose sources have since changed must be detectable. A
-# content digest of the sources is used rather than timestamps, because a fresh
-# git clone gives every file the same mtime and would make an mtime comparison
-# meaningless.
+# committed executable whose sources have since changed must be detectable.
+#
+# The source digest is content-based rather than timestamp-based (a fresh git
+# clone gives every file the same mtime), and line endings are normalised to LF
+# before hashing, because git checks these files out as CRLF on Windows while the
+# repository stores LF.
 $hash = (Get-FileHash -Algorithm SHA256 $outFile).Hash
 $sourceDigestInput = ($sources |
     Sort-Object Name |
-    ForEach-Object { "$($_.Name):$((Get-FileHash -Algorithm SHA256 $_.FullName).Hash)" }) -join "`n"
+    ForEach-Object {
+        $text = [System.IO.File]::ReadAllText($_.FullName).Replace("`r`n", "`n")
+        $bytes = [System.Text.Encoding]::UTF8.GetBytes($text)
+        $digest = [System.BitConverter]::ToString(
+            [System.Security.Cryptography.SHA256]::Create().ComputeHash($bytes)).Replace('-', '').ToUpperInvariant()
+        "$($_.Name):$digest"
+    }) -join "`n"
 $sourceDigest = [System.BitConverter]::ToString(
     [System.Security.Cryptography.SHA256]::Create().ComputeHash(
         [System.Text.Encoding]::UTF8.GetBytes($sourceDigestInput))).Replace('-', '').ToLowerInvariant()

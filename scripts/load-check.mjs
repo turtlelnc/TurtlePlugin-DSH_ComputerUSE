@@ -23,13 +23,21 @@ function hashOf(path) {
 /**
  * Content digest of `native/src/*.cs`, computed exactly as native/build.ps1 does:
  * per-file `NAME:UPPERCASE_HASH` lines sorted by name, joined with LF, hashed to
- * lowercase hex. Timestamps are useless here — a fresh clone equalises them.
+ * lowercase hex.
+ *
+ * Timestamps are useless here — a fresh clone equalises them — and so is a raw
+ * byte hash: git checks these files out as CRLF on Windows while the repository
+ * stores LF, so line endings are normalised before hashing.
  */
 function sourceDigest(dir) {
   const lines = readdirSync(dir)
     .filter((name) => name.endsWith('.cs'))
     .sort()
-    .map((name) => `${name}:${hashOf(join(dir, name)).toUpperCase()}`)
+    .map((name) => {
+      const text = readFileSync(join(dir, name), 'utf8').replace(/\r\n/g, '\n')
+      const digest = createHash('sha256').update(Buffer.from(text, 'utf8')).digest('hex').toUpperCase()
+      return `${name}:${digest}`
+    })
   return createHash('sha256').update(Buffer.from(lines.join('\n'), 'utf8')).digest('hex')
 }
 

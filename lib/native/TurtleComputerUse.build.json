@@ -1,8 +1,8 @@
 {
     "name":  "TurtleComputerUse",
     "version":  "0.1.0-rc1",
-    "builtAtUtc":  "2026-10-01T09:45:54.3705758Z",
-    "sha256":  "883DA8C9190587B6EB89AA1FBBCE539D1D647A7DABD43598C003D2435429F70C",
+    "builtAtUtc":  "2026-10-01T09:46:42.7908108Z",
+    "sha256":  "C408B2BA3E587DFD5CCE93304EF8E3C1ECE7077B9DB85D8EB8D1CF19C8DD3F77",
     "sizeBytes":  103424,
     "compiler":  "C:\\WINDOWS\\Microsoft.NET\\Framework64\\v4.0.30319\\csc.exe",
     "sources":  [
@@ -17,5 +17,5 @@
                     "Uia.cs",
                     "Windows.cs"
                 ],
-    "sourcesSha256":  "e8dd2aed4e32a7232d23d0df6e81263ef293e065278461ec4378d17571e9607d"
+    "sourcesSha256":  "8efbe37804da9266c10901933b75af7f87527a05676d5ea050384b3cf622ffcc"
 }
