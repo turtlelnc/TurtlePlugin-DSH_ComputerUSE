@@ -264,6 +264,26 @@ check('the deny-list wins over an empty allow-list', checkSandbox('excel.exe', {
 check('observe-only refuses injection but allows reading', checkSandbox('mspaint.exe', { ...defaults, readOnly: true }, true).allowed === false && checkSandbox('mspaint.exe', { ...defaults, readOnly: true }, false).allowed === true)
 check('refusals carry a model-readable reason', checkSandbox('cmd.exe', defaults, true).reason.length > 40)
 
+section('7b. allowAllApps')
+const all = { ...defaults, allowAllApps: true }
+check('allowAllApps defaults to off', defaults.allowAllApps === false, JSON.stringify(defaults.allowAllApps))
+check('allowAllApps permits an arbitrary application', checkSandbox('excel.exe', all, true).allowed === true)
+check('allowAllApps pre-approves it (no prompt)', checkSandbox('excel.exe', all, true).whitelisted === true)
+check('allowAllApps permits an application the deny-list is empty for', checkSandbox('some-unknown-app.exe', all, true).allowed === true)
+// The safety core: allowAllApps must never lift the compiled-in refusals.
+check('allowAllApps STILL refuses shells', checkSandbox('powershell.exe', all, true).allowed === false)
+check('allowAllApps STILL refuses cmd', checkSandbox('cmd.exe', all, true).allowed === false)
+check('allowAllApps STILL refuses Windows Terminal', checkSandbox('wt.exe', all, true).allowed === false)
+check('allowAllApps STILL refuses the UAC prompt', checkSandbox('consent.exe', all, true).allowed === false)
+check('allowAllApps STILL refuses the credential UI', checkSandbox('credentialuibroker.exe', all, true).allowed === false)
+check('allowAllApps STILL refuses the logon surface', checkSandbox('logonui.exe', all, true).allowed === false)
+check('allowAllApps STILL refuses Registry Editor', checkSandbox('regedit.exe', all, true).allowed === false)
+// Explicit deny always beats allow-everything.
+check('the deny-list beats allowAllApps', checkSandbox('excel.exe', { ...all, deniedApps: ['excel.exe'] }, true).allowed === false)
+check('observe-only beats allowAllApps', checkSandbox('excel.exe', { ...all, readOnly: true }, true).allowed === false)
+check('reads stay allowed under allowAllApps + observe-only', checkSandbox('excel.exe', { ...all, readOnly: true }, false).allowed === true)
+check('the refusal text points at allowAllApps', /allowAllApps/.test(checkSandbox('excel.exe', { ...defaults, allowedApps: ['mspaint.exe'] }, true).reason))
+
 section('8. lifecycle')
 check('apply() registered a disposer', disposers.length >= 1, `${disposers.length}`)
 try {

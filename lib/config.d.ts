@@ -20,6 +20,7 @@ export interface ComputerUseConfig {
     enabled: boolean;
     dispatch: 'background' | 'foreground' | 'auto';
     allowedApps: string[];
+    allowAllApps: boolean;
     deniedApps: string[];
     readOnly: boolean;
     requireApproval: boolean;
@@ -52,6 +53,7 @@ export declare const Config: z<Schemastery.ObjectS<NoInfer<{
     requireApproval: z<boolean, boolean, "volatile-defined">;
     firstRunConsent: z<boolean, boolean, "volatile-defined">;
     allowElevatedTargets: z<boolean, boolean, "volatile-defined">;
+    allowAllApps: z<boolean, boolean, "volatile-defined">;
     allowForegroundEscalation: z<boolean, boolean, "volatile-defined">;
     allowScreenshots: z<boolean, boolean, "volatile-defined">;
     syntheticCursor: z<boolean, boolean, "volatile-defined">;
@@ -77,6 +79,7 @@ export declare const Config: z<Schemastery.ObjectS<NoInfer<{
     requireApproval: z<boolean, boolean, "volatile-defined">;
     firstRunConsent: z<boolean, boolean, "volatile-defined">;
     allowElevatedTargets: z<boolean, boolean, "volatile-defined">;
+    allowAllApps: z<boolean, boolean, "volatile-defined">;
     allowForegroundEscalation: z<boolean, boolean, "volatile-defined">;
     allowScreenshots: z<boolean, boolean, "volatile-defined">;
     syntheticCursor: z<boolean, boolean, "volatile-defined">;

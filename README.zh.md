@@ -100,6 +100,7 @@ Windows 特有的现实问题由一个独立进程处理：`TurtleComputerUse.ex
 | 控制项 | 设置 | 默认值 | 效果 |
 |---|---|---|---|
 | 允许清单 | `allowedApps` | `[]`（空） | 列在这里的应用无需审批即可放行。**空清单不等于"什么都不允许"**：空意味着"任何未被拒绝的应用都需要一次审批"。非空清单则是限制性的：不在清单上的应用以 `app_not_allowlisted` 被拒绝。 |
+| 全部允许 | `allowAllApps` | `false` | 预先放行**本机所有应用**（除拒绝清单与内置硬拒绝清单之外），核准层不再逐应用发问。要"允许所有程序"请用这个开关，而不是把程序逐个列进白名单——非空 `allowedApps` 是**限制性**的，列"全部"既列不完也不可靠。它无法解除下面的硬拒绝。 |
 | 拒绝清单 | `deniedApps` | `[]` | 永远优先于允许清单。以 `app_denied` 拒绝。 |
 | 只观察 | `readOnly` | `false` | 窗口枚举、无障碍树和截图照常可用；每一次点击、按键和启动都以 `read_only` 被拒绝。 |
 | 频率限制 | `maxActionsPerMinute` | `240` | 对注入动作的一分钟滚动预算，在驱动内强制执行（`rate_limited`）。`0` 表示不限制。 |
@@ -150,7 +151,8 @@ schema 中每一个标记了 `.volatile()` 的字段都可以在 **设置 → �
 |---|---|---|---|
 | `enabled` | boolean | `true` | 总开关。关闭时每个工具都返回拒绝，而不接触桌面。 |
 | `dispatch` | `background` \| `foreground` \| `auto` | `background` | 见第 2 节。 |
-| `allowedApps` | string[] | `[]` | 沙盒允许清单。条目是可执行文件叶子名（`excel.exe`、`mspaint.exe`、`notepad.exe`）。命中它们不会弹审批。 |
+| `allowedApps` | string[] | `[]` | 沙盒允许清单。条目是可执行文件叶子名（`excel.exe`、`mspaint.exe`、`notepad.exe`）。命中它们不会弹审批。**非空清单会限制其余所有应用**，所以要放行整台机器请用 `allowAllApps`，而不是把每个程序都列进去。 |
+| `allowAllApps` | boolean | `false` | 不逐个列举、也不逐个弹窗，直接允许本机所有应用。预先放行一切不在 `deniedApps`、也不在内置硬拒绝清单上的应用，并隐含 `allowedBrowsers`。硬拒绝清单——终端与 Shell、UAC 提示、凭据界面、登录/锁屏界面、注册表编辑器——仍然拒绝，没有任何设置能解除。 |
 | `deniedApps` | string[] | `[]` | 沙盒拒绝清单。永远优先于允许清单。 |
 | `readOnly` | boolean | `false` | 只观察沙盒。 |
 | `requireApproval` | boolean | `true` | 第 2 层。关闭后，沙盒放行的应用会被直接驱动而不弹提示。 |

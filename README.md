@@ -111,6 +111,7 @@ approval service. (One asymmetry: a *launch* is gated by the host, because the d
 | Control | Setting | Default | Effect |
 |---|---|---|---|
 | Allow-list | `allowedApps` | `[]` (empty) | Applications listed here are cleared without an approval prompt. **An empty list is not "allow nothing"**: it means "any application that is not denied needs one approval". A non-empty list is restrictive: anything not on it is refused with `app_not_allowlisted`. |
+| Allow everything | `allowAllApps` | `false` | Pre-approves **every** application that is not on the deny-list and not on the compiled-in refusal list, so the approval layer stops asking. Use this instead of enumerating programs: a non-empty `allowedApps` *restricts*, so listing "all apps" is endless and fragile. It cannot lift the hard refusals below. |
 | Deny-list | `deniedApps` | `[]` | Always wins over the allow-list. Refused with `app_denied`. |
 | Observe-only | `readOnly` | `false` | Window listing, accessibility trees and screenshots keep working; every click, keystroke and launch is refused with `read_only`. |
 | Rate limit | `maxActionsPerMinute` | `240` | Rolling one-minute budget on injected actions, enforced in the driver (`rate_limited`). `0` disables it. |
@@ -175,7 +176,8 @@ Defaults below are the real schema defaults.
 |---|---|---|---|
 | `enabled` | boolean | `true` | Master switch. When off, every tool returns a refusal instead of touching the desktop. |
 | `dispatch` | `background` \| `foreground` \| `auto` | `background` | See §2. |
-| `allowedApps` | string[] | `[]` | Sandbox allow-list. Entries are exe leaf names (`excel.exe`, `mspaint.exe`, `notepad.exe`). Hit these and no approval prompt is raised. |
+| `allowedApps` | string[] | `[]` | Sandbox allow-list. Entries are exe leaf names (`excel.exe`, `mspaint.exe`, `notepad.exe`). Hit these and no approval prompt is raised. **A non-empty list restricts everything else**, so to allow the whole machine use `allowAllApps` rather than listing every program. |
+| `allowAllApps` | boolean | `false` | Allow every application on this machine without listing them and without a per-application prompt. Pre-approves anything not on `deniedApps` and not on the compiled-in refusal list, and implies `allowedBrowsers`. The hard refusals — shells and terminals, the UAC prompt, the credential UI, the logon/lock screen, Registry Editor — stay refused; no setting lifts them. |
 | `deniedApps` | string[] | `[]` | Sandbox deny-list. Always wins over the allow-list. |
 | `readOnly` | boolean | `false` | Observe-only sandbox. |
 | `requireApproval` | boolean | `true` | Layer 2. When off, an application the sandbox allowed is driven without a prompt. |

@@ -30,6 +30,7 @@ export interface ComputerUseConfig {
   enabled: boolean
   dispatch: 'background' | 'foreground' | 'auto'
   allowedApps: string[]
+  allowAllApps: boolean
   deniedApps: string[]
   readOnly: boolean
   requireApproval: boolean
@@ -65,7 +66,7 @@ export const Config = z.object({
     .volatile(),
 
   allowedApps: z.array(z.string()).default([])
-    .description('Sandbox allow-list (layer 1). Empty means "any application that is not denied". Entries are exe leaf names, e.g. excel.exe, mspaint.exe, notepad.exe. Hit these and no approval prompt is raised.')
+    .description('Sandbox allow-list (layer 1). Empty means "any application that is not denied". Entries are exe leaf names, e.g. excel.exe, mspaint.exe, notepad.exe. Hit these and no approval prompt is raised. Turn on allowAllApps instead of enumerating every program on the machine.')
     .volatile(),
 
   deniedApps: z.array(z.string()).default([])
@@ -86,6 +87,10 @@ export const Config = z.object({
 
   allowElevatedTargets: z.boolean().default(false)
     .description('Allow driving windows that belong to elevated processes. Windows UIPI drops synthetic input from a non-elevated process, so this only works when DeepSeek Harness itself runs elevated.')
+    .volatile(),
+
+  allowAllApps: z.boolean().default(false)
+    .description('Allow every application on this machine without listing them and without a per-application prompt. Pre-approves anything that is not on deniedApps and not on the built-in refusal list, so the approval layer stops asking. Shells and terminals, the UAC prompt, the credential UI, the logon/lock screen and Registry Editor are still refused — that list is compiled into the driver and no setting lifts it.')
     .volatile(),
 
   allowForegroundEscalation: z.boolean().default(true)

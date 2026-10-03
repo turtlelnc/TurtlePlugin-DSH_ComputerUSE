@@ -107,9 +107,13 @@ Using `computer_use_act` with `{ action: "click", appId: "mspaint", element: 12 
    application is about to be touched. With only an element index or an `hwnd`, the tool calls
    `apps.list` through the driver to resolve the owning application first.
 3. **Layer 1 — sandbox.** `checkSandbox(appId, config, true)` runs on the host, in this order:
-   hard-coded refusals → `deniedApps` → `readOnly` → the allow-list. A non-empty `allowedApps`
-   list that does not contain the application is a refusal (`app_not_allowlisted`); an empty list is
-   not. A whitelisted application is written into the ledger as `allow-list` and skips layer 2.
+   hard-coded refusals → `deniedApps` → `readOnly` → `allowAllApps` / the allow-list. A non-empty
+   `allowedApps` list that does not contain the application is a refusal (`app_not_allowlisted`); an
+   empty list is not. `allowAllApps: true` short-circuits the allow-list step and pre-approves
+   everything that survived the two checks before it — which is why the ordering matters: shells,
+   the UAC prompt, the credential UI, the logon surface and Registry Editor are refused before
+   `allowAllApps` is ever consulted. A whitelisted application is written into the ledger as
+   `allow-list` and skips layer 2.
 4. **Layer 2 — approval.** If `requireApproval` is on and the application is not already in the
    ledger, `askApproval()` calls `ctx.get('approval').request({ agent, toolName, reason,
    displayReason: { en, zh } })`. Exactly one outcome proceeds (`allowed-once`); `rejected`,

@@ -97,7 +97,7 @@ actually injects). The driver's copy is the one that constitutes the guarantee.
 
 | Guarantee | Refusal code | Notes |
 |---|---|---|
-| Terminals and shells are never driven | `app_denied` | 26 hard-coded executable ids (cmd, powershell, pwsh, Windows Terminal, WSL, cscript, wscript, mshta, rundll32, reg, net, netsh, schtasks, sc, curl, ssh, putty, mintty, ConEmu, Alacritty, WezTerm, …). A non-empty `deniedApps` cannot un-deny them; an allow-list entry cannot whitelist them. |
+| Terminals and shells are never driven | `app_denied` | 26 hard-coded executable ids (cmd, powershell, pwsh, Windows Terminal, WSL, cscript, wscript, mshta, rundll32, reg, net, netsh, schtasks, sc, curl, ssh, putty, mintty, ConEmu, Alacritty, WezTerm, …). A non-empty `deniedApps` cannot un-deny them; an allow-list entry cannot whitelist them; **`allowAllApps` cannot allow them either** — the check runs before anything permissive. |
 | The UAC consent prompt is never driven | `app_denied` | `consent` |
 | The credential UI is never driven | `app_denied` | `credentialuibroker` |
 | The logon / lock surface is never driven | `app_denied` | `logonui`, `winlogon` |
@@ -268,10 +268,10 @@ What to do if you want the risk to be smaller than the defaults:
 | Observe without touching | `readOnly: true`. Trees, window lists and screenshots keep working; every click, keystroke and launch is refused (`read_only`). |
 | Never escalate to foreground | `dispatch: "background"`, `allowForegroundEscalation: false`. The answer becomes `background_unavailable` and a human decides. |
 | Keep the physical mouse and keyboard | Leave `dispatch: "background"`. Nothing in background mode touches the system input queue. |
-| Bound the blast radius per session | Keep `allowedApps` narrow (only the applications you are working in) and list everything sensitive in `deniedApps`. |
+| Bound the blast radius per session | Keep `allowedApps` narrow (only the applications you are working in) and list everything sensitive in `deniedApps`. **Do not turn on `allowAllApps` unless you actually mean "every application on this machine"** — it is the single largest widening of the sandbox this plugin offers, short of `readOnly: false` plus `requireApproval: false`. |
 | Bound the pace | Lower `maxActionsPerMinute` (e.g. 30) and let the rate limit interrupt a looping agent. |
 | No pixels in the transcript | `allowScreenshots: false`. The tree becomes the only perception channel; text can still leak content. |
-| No prompts, ever | `requireApproval: false` — read this as "trust the model for every non-refused application", because that is what it means. |
+| No prompts, ever | `requireApproval: false` — read this as "trust the model for every non-refused application", because that is what it means. `allowAllApps: true` reaches the same place for the *sandbox* layer while keeping `requireApproval` meaningful: everything is pre-approved, so no prompt fires, but turning `allowAllApps` back off restores prompting instead of silently allowing everything. |
 | No silent launches | Leave `deniedApps` populated; launches go through both layers, so an approval prompt precedes a launch of an unlisted application. |
 | Do not cross the elevation boundary | Leave `allowElevatedTargets: false` and do not run the harness elevated. If you must drive an elevated window, understand that the harness then holds administrator rights for everything it does. |
 | Revoke mid-session | `computer_use_status` with `action: "reset"` clears every per-session approval. |

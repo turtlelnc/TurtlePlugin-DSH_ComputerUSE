@@ -20,13 +20,18 @@ export declare function staticRefusal(appId: string): string | null;
 /** The outcome of the sandbox layer for one application. */
 export interface SandboxVerdict {
     allowed: boolean;
-    /** True when the application is on the allow-list and therefore skips approval. */
+    /** True when the application is allowed without needing approval. */
     whitelisted: boolean;
     code: string;
     reason: string;
 }
 /**
  * Evaluate layer 1 for one application.
+ *
+ * Order matters and is deliberate: the compiled-in refusals and the configured
+ * deny-list are checked before anything permissive, so `allowAllApps` can never
+ * open a shell, the UAC prompt, the credential UI, the lock screen or Registry
+ * Editor.
  * @param appId - normalized or raw application identifier.
  * @param config - the plugin configuration.
  * @param mutating - whether the pending operation injects input.
